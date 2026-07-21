@@ -1,13 +1,17 @@
 <script type="text/javascript">//<![CDATA[
 XHR.poll(3, '<%=url([[admin]], [[services]], [[pushbot]], [[status]])%>', null,
 	function(x, data) {
-		var tb = document.getElementById('pushbot_status');
-		if (data && tb) {
-			if (data.running) {
-				var links = '<em><b><font color=green>pushbot <%:RUNNING%></font></b></em>';
-				tb.innerHTML = links;
+		var badge = document.getElementById('pushbot_status_badge');
+		var text = document.getElementById('pushbot_status_text');
+		if (badge && text) {
+			if (data && data.running) {
+				badge.classList.remove('is-stopped');
+				badge.classList.add('is-running');
+				text.textContent = '<%:RUNNING%>';
 			} else {
-				tb.innerHTML = '<em><b><font color=red>pushbot <%:NOT RUNNING%></font></b></em>';
+				badge.classList.remove('is-running');
+				badge.classList.add('is-stopped');
+				text.textContent = '<%:NOT RUNNING%>';
 			}
 		}
 	}
@@ -155,6 +159,50 @@ XHR.poll(3, '<%=url([[admin]], [[services]], [[pushbot]], [[status]])%>', null,
 	-webkit-backdrop-filter: blur(10px);
 }
 
+.pushbot-header-card {
+	margin: 0 0 16px 0;
+	padding: 18px 20px;
+}
+
+.pushbot-header-content {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.pushbot-status-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	border: 1px solid transparent;
+	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+	white-space: nowrap;
+}
+
+.pushbot-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: currentColor;
+	box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.24);
+}
+
+.pushbot-status-badge.is-running {
+	background: linear-gradient(135deg, #10b981, #059669);
+	color: #ffffff;
+}
+
+.pushbot-status-badge.is-stopped {
+	background: linear-gradient(135deg, #fecaca, #fda4af);
+	color: #b91c1c;
+}
+
 @media (prefers-color-scheme: dark) {
 	.pushbot-mode-card {
 		background: rgba(10, 10, 18, 0.75) !important;
@@ -168,6 +216,16 @@ XHR.poll(3, '<%=url([[admin]], [[services]], [[pushbot]], [[status]])%>', null,
 
 	.pushbot-card-subtitle {
 		color: #d9d9d9 !important;
+	}
+
+	.pushbot-status-badge.is-stopped {
+		background: linear-gradient(135deg, rgba(248, 113, 113, 0.28), rgba(244, 63, 94, 0.32)) !important;
+		color: #fecaca !important;
+	}
+
+	.pushbot-status-badge.is-running {
+		background: linear-gradient(135deg, rgba(16, 185, 129, 0.42), rgba(5, 150, 105, 0.46)) !important;
+		color: #dcfce7 !important;
 	}
 
 	.pushbot-choice-button {
@@ -187,17 +245,18 @@ XHR.poll(3, '<%=url([[admin]], [[services]], [[pushbot]], [[status]])%>', null,
 }
 
 .pushbot-card-title {
-	font-size: 14px;
-	font-weight: 700;
+	font-size: 22px;
+	font-weight: 800;
 	letter-spacing: 0.02em;
-	color: #1f2937;
+	line-height: 1.2;
+	color: #111827;
 }
 
-
 .pushbot-card-subtitle {
-	margin: 2px 0 10px 2px;
+	margin: 2px 0 0 0;
 	font-size: 13px;
-	font-weight: 700;
+	font-weight: 600;
+	line-height: 1.7;
 	color: #475569;
 }
 
@@ -298,7 +357,16 @@ body[class*="dark"] .pushbot-choice-button.is-on {
 }
 </style>
 <fieldset class="cbi-section">
-	<p id="pushbot_status">
-		<em><%:Collecting data...%></em>
-	</p>
+	<div class="pushbot-mode-card pushbot-header-card">
+		<div class="pushbot-card-top">
+			<div class="pushbot-header-content">
+				<div class="pushbot-card-title">PushBot</div>
+				<div class="pushbot-card-subtitle">「全能推送」，英文名「PushBot」，是一款从服务器推送报警信息和日志到各平台的工具。<br>支持钉钉推送，企业微信推送，PushPlus推送。<br>本插件由 tty228/luci-app-serverchan 创建，然后七年修改为全能推送自用。<br><br>如果你在使用中遇到问题，请到这里提交：<a href="https://github.com/zzsj0928/luci-app-pushbot" target="_blank">github 项目地址</a></div>
+			</div>
+			<div id="pushbot_status_badge" class="pushbot-status-badge is-stopped" role="status" aria-live="polite">
+				<span class="pushbot-status-dot"></span>
+				<span id="pushbot_status_text"><%:NOT RUNNING%></span>
+			</div>
+		</div>
+	</div>
 </fieldset>
