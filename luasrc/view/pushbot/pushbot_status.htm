@@ -1345,6 +1345,7 @@ function initModernTabs() {
 	tabBar.innerHTML =
 		'<button type="button" class="pushbot-tab is-active" data-tab="basic">基本设置</button>' +
 		'<button type="button" class="pushbot-tab" data-tab="content">推送内容</button>' +
+		'<button type="button" class="pushbot-tab" data-tab="client">在线设备</button>' +
 		'<button type="button" class="pushbot-tab" data-tab="log">日志</button>';
 
 	headerCard.parentNode.insertBefore(tabBar, headerCard.nextSibling);
@@ -1358,6 +1359,11 @@ function initModernTabs() {
 	contentPane.id = 'pushbot_pane_content';
 	contentPane.className = 'pushbot-tab-pane';
 	contentPane.innerHTML = '<div class="pushbot-mode-card" style="padding:32px;text-align:center;color:#94a3b8;font-size:14px">推送内容设置即将到来</div>';
+
+	var clientPane = document.createElement('div');
+	clientPane.id = 'pushbot_pane_client';
+	clientPane.className = 'pushbot-tab-pane';
+	clientPane.innerHTML = '<div class="pushbot-mode-card" style="padding:0;overflow:hidden"><div class="pushbot-log-container"><div class="pushbot-log-content" id="pushbot_client_content"><p style="padding:12px;margin:0;color:#94a3b8;text-align:center">加载中...</p></div></div></div>';
 
 	var logPane = document.createElement('div');
 	logPane.id = 'pushbot_pane_log';
@@ -1382,7 +1388,8 @@ function initModernTabs() {
 
 	tabBar.parentNode.insertBefore(basicPane, tabBar.nextSibling);
 	tabBar.parentNode.insertBefore(contentPane, basicPane.nextSibling);
-	tabBar.parentNode.insertBefore(logPane, contentPane.nextSibling);
+	tabBar.parentNode.insertBefore(clientPane, contentPane.nextSibling);
+	tabBar.parentNode.insertBefore(logPane, clientPane.nextSibling);
 
 	/* move cards (运行控制 + 推送模式 + 终端信息) into basic pane */
 	var runCard = document.getElementById('pushbot_mode_card');
@@ -1397,7 +1404,7 @@ function initModernTabs() {
 	if (oldTabMenu) {
 		var links = oldTabMenu.querySelectorAll('a');
 		links.forEach(function(a) {
-			if (a.textContent.indexOf('基本设置') >= 0 || a.textContent.indexOf('日志') >= 0 || a.textContent.indexOf('免打扰') >= 0) {
+			if (a.textContent.indexOf('基本设置') >= 0 || a.textContent.indexOf('日志') >= 0 || a.textContent.indexOf('免打扰') >= 0 || a.textContent.indexOf('在线设备') >= 0) {
 				var li = a.parentNode;
 				if (li) li.style.display = 'none';
 			}
@@ -1419,8 +1426,10 @@ function initModernTabs() {
 			tab.classList.add('is-active');
 			document.getElementById('pushbot_pane_basic').classList.toggle('is-visible', name === 'basic');
 			document.getElementById('pushbot_pane_content').classList.toggle('is-visible', name === 'content');
+			document.getElementById('pushbot_pane_client').classList.toggle('is-visible', name === 'client');
 			document.getElementById('pushbot_pane_log').classList.toggle('is-visible', name === 'log');
 			if (name === 'log') loadLog();
+			if (name === 'client') loadClients();
 		});
 	});
 
@@ -1463,6 +1472,47 @@ function initModernTabs() {
 			);
 		});
 	}
+
+	/* ── client (在线设备) viewer ── */
+	var clientTimer = null;
+	function timeForHumans(seconds) {
+		if (seconds < 60) return seconds + ' 秒';
+		if (seconds < 3600) return Math.floor(seconds / 60) + ' 分 ' + (seconds % 60) + ' 秒';
+		if (seconds < 86400) return Math.floor(seconds / 3600) + ' 小时 ' + Math.floor((seconds % 3600) / 60) + ' 分';
+		return Math.floor(seconds / 86400) + ' 天 ' + Math.floor((seconds % 86400) / 3600) + ' 小时';
+	}
+	function loadClients() {
+		var container = document.getElementById('pushbot_client_content');
+		if (!container) return;
+		XHR.get('<%=url([[admin]], [[services]], [[pushbot]], [[client_list]])%>', null,
+			function(x) {
+				if (!x || x.status != 200) { container.innerHTML = '<p style="padding:12px;margin:0;color:#ef4444;text-align:center">加载失败</p>'; return; }
+				var data;
+				try { data = JSON.parse(x.responseText); } catch(e) { data = []; }
+				if (!data || !data.length) {
+					container.innerHTML = '<p style="padding:12px;margin:0;color:#94a3b8;text-align:center">暂无在线设备</p>';
+					return;
+				}
+				var html = '<div style="overflow-x:auto"><table class="pushbot-client-table"><thead><tr><th>主机名</th><th>MAC 地址</th><th>IP 地址</th><th>在线时间</th></tr></thead><tbody>';
+				data.forEach(function(c) {
+					var h = c.hostname || '-';
+					if (h.indexOf('?') === 0) h = h.substring(1);
+					if (!h || h === '?') h = '-';
+					html += '<tr><td>' + escHtml(h) + '</td><td class="pushbot-cell-mac">' + escHtml(c.mac) + '</td><td>' + escHtml(c.ip) + '</td><td>' + timeForHumans(Math.max(0, c.uptime)) + '</td></tr>';
+				});
+				html += '</tbody></table></div>';
+				container.innerHTML = html;
+			}
+		);
+	}
+	function escHtml(s) {
+		return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+	/* start auto-refresh for client list */
+	clientTimer = setInterval(function() {
+		var pane = document.getElementById('pushbot_pane_client');
+		if (pane && pane.classList.contains('is-visible')) loadClients();
+	}, 5000);
 }
 //]]&gt;
 </script>
@@ -1686,6 +1736,41 @@ function initModernTabs() {
 	flex-direction: column;
 	height: 100%;
 }
+
+/* ── client table ── */
+.pushbot-client-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+.pushbot-client-table thead th {
+	padding: 10px 14px;
+	text-align: left;
+	font-weight: 700;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: #64748b;
+	border-bottom: 2px solid rgba(148,163,184,0.2);
+	background: rgba(248,250,252,0.5);
+}
+.pushbot-client-table tbody td {
+	padding: 9px 14px;
+	border-bottom: 1px solid rgba(148,163,184,0.1);
+	color: #1e293b;
+}
+.pushbot-client-table tbody tr:hover {
+	background: rgba(59,130,246,0.04);
+}
+.pushbot-client-table tbody tr:last-child td {
+	border-bottom: none;
+}
+.pushbot-cell-mac {
+	font-family: Menlo, Consolas, monospace;
+	font-size: 12px;
+	letter-spacing: 0.02em;
+}
+
 .pushbot-log-header {
 	padding: 12px 16px;
 	border-bottom: 1px solid rgba(148, 163, 184, 0.18);
@@ -1792,6 +1877,18 @@ function initModernTabs() {
 	}
 	.pushbot-log-header {
 		border-color: rgba(255, 255, 255, 0.06) !important;
+	}
+	.pushbot-client-table thead th {
+		color: #cbd5e1 !important;
+		border-color: rgba(255,255,255,0.10) !important;
+		background: rgba(10,10,18,0.5) !important;
+	}
+	.pushbot-client-table tbody td {
+		color: #d9d9d9 !important;
+		border-color: rgba(255,255,255,0.05) !important;
+	}
+	.pushbot-client-table tbody tr:hover {
+		background: rgba(96,165,250,0.10) !important;
 	}
 }
 
